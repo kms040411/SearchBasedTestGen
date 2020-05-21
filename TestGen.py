@@ -3,9 +3,9 @@ import ast
 import sys
 
 class Func_info():
-    def __init__(self, name, arg_num, pointer):
+    def __init__(self, name, args, pointer):
         self.name = name
-        self.arg_num = arg_num
+        self.args = args
         self.pointer = pointer
 
 class TestGen():
@@ -43,14 +43,18 @@ class TestGen():
         name = node.name
         pointer = node
         arg_num = len(node.args.args)
-        self.functions.append(Func_info(name, arg_num, pointer))
+        args = list()
+        for i in range(arg_num):
+            args.append(node.args.args[i].arg)
+        self.functions.append(Func_info(name, args, pointer))
         return
 
     def register_predicate(self, node):
         predicate = node.test
         predicate_num = 0
         if not isinstance(predicate, ast.Compare):
-            print("not compare")
+            print("it is not compare")
+            raise Exception()
         else:
             predicate_num = len(self.predicates) + 1
             self.predicates.append((predicate_num, predicate))
@@ -106,9 +110,23 @@ class TestGen():
     def calc_fitness(self, pnum:int, args:list):
         pass
     
-    # Execute test code
-    def execute_test_suite(self):
-        pass
+    # Generate & Execute test code
+    def execute_test_suite(self, func_num:int, args:list):
+        # Generate test code
+        test_code = ""
+        test_code = test_code + "import modified_code\n"
+        test_code = test_code + "modified_code." + self.functions[func_num].name + "("
+        for arg in args:
+            test_code = test_code + str(arg) + ", "
+        test_code = test_code + ")\n"
+
+        # Execute test file
+        compiled = compile(test_code, "test", "exec")
+        exec(compiled)
+
+        # Gather data from the test
+        
+        
 
 # This is a helper function added to the original code
 # if : 1
