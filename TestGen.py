@@ -1,6 +1,7 @@
 import astor
 import ast
 import sys
+import copy
 
 class Func_info():
     def __init__(self, name, args, pointer):
@@ -8,11 +9,18 @@ class Func_info():
         self.args = args
         self.pointer = pointer
 
+class Predicate_info():
+    def __init__(self, num, predicate, precedent):
+        self.num = num
+        self.predicate = predicate
+        self.precedent = precedent
+
 class TestGen():
     config = dict()
     functions = list() # A list of Func_info
-    predicates = list()
+    predicates = [None] # Do not use index 0
     original_ast = None
+    precedent_stack = list()
 
     def __init__(self, depth=10):
         self.config['DEPTH'] = depth
@@ -21,6 +29,7 @@ class TestGen():
         self.file_input(name)
         self.modify_ast()
         self.file_output()
+        self.execute_test_suite(0, [1, 2, 3])
         self.gen_test_suite()
         return
 
@@ -52,12 +61,15 @@ class TestGen():
     def register_predicate(self, node):
         predicate = node.test
         predicate_num = 0
+        precedent = copy.deepcopy(self.precedent_stack)
+        #print(precedent)
         if not isinstance(predicate, ast.Compare):
             print("it is not compare")
             raise Exception()
         else:
-            predicate_num = len(self.predicates) + 1
-            self.predicates.append((predicate_num, predicate))
+            predicate_num = len(self.predicates)
+            self.predicates.append(Predicate_info(predicate_num, predicate, precedent))
+            self.precedent_stack.append(predicate_num)
         return predicate_num
 
     def add_helperfunc(self, num, node):
@@ -86,12 +98,14 @@ class TestGen():
                 self.add_helperfunc(predicate_num, node)
                 iter_ast(node.body)
                 iter_ast(node.orelse)
+                self.precedent_stack.pop()
             elif isinstance(node, ast.While):
                 print("while")
                 predicate_num = self.register_predicate(node)
                 self.add_helperfunc(predicate_num, node)
                 iter_ast(node.body)
                 iter_ast(node.orelse)
+                self.precedent_stack.pop()
             elif isinstance(node, ast.AST):
                 print("root or normal node")
                 if hasattr(node, "body"):
@@ -107,7 +121,7 @@ class TestGen():
         pass
 
     # Return calculated fitness value
-    def calc_fitness(self, pnum:int, args:list):
+    def calc_fitness(self, predicate_num:int, args:list):
         pass
     
     # Generate & Execute test code
@@ -125,8 +139,7 @@ class TestGen():
         exec(compiled)
 
         # Gather data from the test
-        
-        
+
 
 # This is a helper function added to the original code
 # if : 1
