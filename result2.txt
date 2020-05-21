@@ -1,0 +1,25 @@
+Module(
+    body=[
+        FunctionDef(name='test_me',
+            args=arguments(posonlyargs=[],
+                args=[arg(arg='x', annotation=None, type_comment=None),
+                    arg(arg='y', annotation=None, type_comment=None),
+                    arg(arg='z', annotation=None, type_comment=None)],
+                vararg=None,
+                kwonlyargs=[],
+                kw_defaults=[],
+                kwarg=None,
+                defaults=[]),
+            body=[
+                If(
+                    test=Compare(left=Name(id='y'), ops=[Eq], comparators=[Constant(value=100003, kind=None)]),
+                    body=[
+                        Expr(value=Call(func=Name(id='print'), args=[Constant(value='1', kind=None)], keywords=[])),
+                        Assign(targets=[Name(id='z')], value=Constant(value=1, kind=None), type_comment=None)],
+                    orelse=[
+                        Expr(value=Call(func=Name(id='print'), args=[Constant(value='2', kind=None)], keywords=[])),
+                        Assign(targets=[Name(id='x')], value=Constant(value=2, kind=None), type_comment=None)])],
+            decorator_list=[],
+            returns=None,
+            type_comment=None)],
+    type_ignores=[])

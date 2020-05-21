@@ -1,0 +1,63 @@
+Module(
+    body=[
+        FunctionDef(name='test_me',
+            args=arguments(posonlyargs=[],
+                args=[arg(arg='a', annotation=None, type_comment=None),
+                    arg(arg='b', annotation=None, type_comment=None),
+                    arg(arg='c', annotation=None, type_comment=None)],
+                vararg=None,
+                kwonlyargs=[],
+                kw_defaults=[],
+                kwarg=None,
+                defaults=[]),
+            body=[
+                Assign(targets=[Name(id='d')], value=Constant(value=0, kind=None), type_comment=None),
+                If(
+                    test=Compare(left=Name(id='a'),
+                        ops=[Gt],
+                        comparators=[BinOp(left=Name(id='b'), op=Add, right=Name(id='c'))]),
+                    body=[
+                        Expr(value=Call(func=Name(id='print'), args=[Constant(value='1', kind=None)], keywords=[])),
+                        If(test=Compare(left=Name(id='b'), ops=[NotEq], comparators=[Name(id='c')]),
+                            body=[
+                                Expr(
+                                    value=Call(func=Name(id='print'),
+                                        args=[Constant(value='2', kind=None)],
+                                        keywords=[])),
+                                AugAssign(target=Name(id='d'), op=Add, value=Constant(value=1, kind=None))],
+                            orelse=[
+                                Expr(
+                                    value=Call(func=Name(id='print'),
+                                        args=[Constant(value='3', kind=None)],
+                                        keywords=[])),
+                                AugAssign(target=Name(id='d'), op=Add, value=Constant(value=2, kind=None))])],
+                    orelse=[
+                        Expr(value=Call(func=Name(id='print'), args=[Constant(value='4', kind=None)], keywords=[])),
+                        Assign(targets=[Name(id='d')],
+                            value=BinOp(left=Name(id='d'), op=Sub, right=Constant(value=1, kind=None)),
+                            type_comment=None)]),
+                If(
+                    test=Compare(left=Name(id='d'), ops=[Gt], comparators=[Constant(value=0, kind=None)]),
+                    body=[
+                        Expr(value=Call(func=Name(id='print'), args=[Constant(value='5', kind=None)], keywords=[])),
+                        If(
+                            test=Compare(left=Name(id='a'), ops=[Gt], comparators=[Constant(value=0, kind=None)]),
+                            body=[
+                                Expr(
+                                    value=Call(func=Name(id='print'),
+                                        args=[Constant(value='6', kind=None)],
+                                        keywords=[])),
+                                Return(value=Constant(value=1, kind=None))],
+                            orelse=[
+                                Expr(
+                                    value=Call(func=Name(id='print'),
+                                        args=[Constant(value='7', kind=None)],
+                                        keywords=[])),
+                                Return(value=Constant(value=2, kind=None))])],
+                    orelse=[
+                        Expr(value=Call(func=Name(id='print'), args=[Constant(value='8', kind=None)], keywords=[])),
+                        Return(value=Constant(value=3, kind=None))])],
+            decorator_list=[],
+            returns=None,
+            type_comment=None)],
+    type_ignores=[])

@@ -1,0 +1,49 @@
+Module(
+    body=[
+        FunctionDef(name='test_me',
+            args=arguments(posonlyargs=[],
+                args=[arg(arg='x', annotation=None, type_comment=None)],
+                vararg=None,
+                kwonlyargs=[],
+                kw_defaults=[],
+                kwarg=None,
+                defaults=[]),
+            body=[
+                Assign(targets=[Name(id='z')], value=Constant(value=0, kind=None), type_comment=None),
+                If(
+                    test=Compare(left=Name(id='x'), ops=[Eq], comparators=[Constant(value=2, kind=None)]),
+                    body=[
+                        Expr(value=Call(func=Name(id='print'), args=[Constant(value='1', kind=None)], keywords=[])),
+                        Return(value=Name(id='z'))],
+                    orelse=[]),
+                For(target=Name(id='i'),
+                    iter=Call(func=Name(id='range'), args=[Name(id='x')], keywords=[]),
+                    body=[
+                        Expr(value=Call(func=Name(id='print'), args=[Constant(value='2', kind=None)], keywords=[])),
+                        AugAssign(target=Name(id='z'), op=Add, value=Constant(value=1, kind=None))],
+                    orelse=[
+                        Expr(value=Call(func=Name(id='print'), args=[Constant(value='3', kind=None)], keywords=[])),
+                        If(
+                            test=Compare(left=Name(id='z'), ops=[Eq], comparators=[Constant(value=0, kind=None)]),
+                            body=[
+                                Expr(
+                                    value=Call(func=Name(id='print'),
+                                        args=[Constant(value='4', kind=None)],
+                                        keywords=[])),
+                                Return(value=Name(id='x'))],
+                            orelse=[]),
+                        While(
+                            test=Compare(left=Name(id='z'), ops=[Gt], comparators=[Constant(value=0, kind=None)]),
+                            body=[
+                                Expr(
+                                    value=Call(func=Name(id='print'),
+                                        args=[Constant(value='5', kind=None)],
+                                        keywords=[])),
+                                AugAssign(target=Name(id='z'), op=Sub, value=Constant(value=1, kind=None))],
+                            orelse=[])],
+                    type_comment=None),
+                Return(value=Name(id='z'))],
+            decorator_list=[],
+            returns=None,
+            type_comment=None)],
+    type_ignores=[])
