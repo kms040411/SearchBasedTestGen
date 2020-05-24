@@ -22,14 +22,16 @@ class TestGen():
     original_ast = None
     precedent_stack = list()
 
-    def __init__(self, depth=10):
-        self.config['DEPTH'] = depth
+    def __init__(self, K = 1):
+        self.config["K"] = K
+        return
 
     def do(self, name):
         self.file_input(name)
         self.modify_ast()
         self.file_output()
-        self.execute_test_suite(0, [1, 2, 3])
+        #self.execute_test_suite(0, [1, 2, 3])
+        self.calc_fitness(4, 4, {"x" : 3, "y" : 15, "z" : 17})
         self.gen_test_suite()
         return
 
@@ -73,10 +75,10 @@ class TestGen():
         return predicate_num
 
     def add_helperfunc(self, num, node):
-        node.body.insert(0, ast.Expr(value=ast.Call(func=ast.Attribute(value=ast.Name(id='TestGen'), attr='check_branch'),
+        node.body.insert(0, ast.Expr(value=ast.Call(func=ast.Attribute(value=ast.Name(id=sys.argv[0][:-3]), attr='check_branch'),
                             args=[ast.Constant(value=num, kind=None), ast.Constant(value=1, kind=None)],
                             keywords=[])))
-        node.orelse.insert(0, ast.Expr(value=ast.Call(func=ast.Attribute(value=ast.Name(id='TestGen'), attr='check_branch'),
+        node.orelse.insert(0, ast.Expr(value=ast.Call(func=ast.Attribute(value=ast.Name(id=sys.argv[0][:-3]), attr='check_branch'),
                             args=[ast.Constant(value=num, kind=None), ast.Constant(value=0, kind=None)],
                             keywords=[])))
         return
@@ -112,7 +114,7 @@ class TestGen():
                     iter_ast(node.body)
                 return
             return
-        self.original_ast.body.insert(0, ast.Import(names=[ast.alias(name='TestGen', asname=None)]))
+        self.original_ast.body.insert(0, ast.Import(names=[ast.alias(name=sys.argv[0][:-3], asname=None)]))
         iter_ast(self.original_ast)
         return
 
@@ -121,8 +123,43 @@ class TestGen():
         pass
 
     # Return calculated fitness value
-    def calc_fitness(self, predicate_num:int, args:list):
-        pass
+    def calc_fitness(self, predicate_num:int, target_predicate_num:int, args:dict):
+        predicate = self.predicates[predicate_num].predicate
+
+        op = predicate.ops[0]
+        left = predicate.left
+        right = None
+        if(hasattr(predicate, "right")):
+            right = predicate.right
+        elif(hasattr(predicate, "comparators")):
+            right = predicate.comparators[0]
+        else:
+            raise Exception()
+        
+        left_code = astor.to_source(left).rstrip('\n')
+        right_code = astor.to_source(right).rstrip('\n')
+
+        for key in args:
+            left_code = left_code.replace(key, str(args[key]))
+
+        left_eval = eval(left_code)
+        right_eval = eval(right_code)
+        # @TODO : calculate approach_level, it could be wrong when we use elif
+        approach_level = len(self.predicates[target_predicate_num].precedent) - len(self.predicates[predicate_num].precedent)
+        
+        branch_distance = 0
+        K = self.config["K"]
+        if isinstance(op, ast.Gt):
+            branch_distance = right_eval - left_eval + K
+        elif isinstance(op, ast.Lt):
+            branch_distance = left_eval - right_eval + K
+        elif isinstance(op, ast.Eq):
+            branch_distance = abs(left_eval - right_eval)
+        normalized = 1 - pow(1.001, -1 * branch_distance)
+        f = normalized + approach_level
+
+        print(f)
+        return f
     
     # Generate & Execute test code
     def execute_test_suite(self, func_num:int, args:list):
@@ -135,8 +172,7 @@ class TestGen():
         test_code = test_code + ")\n"
 
         # Execute test file
-        compiled = compile(test_code, "test", "exec")
-        exec(compiled)
+        exec(compile(test_code, "test", "exec"))
 
         # Gather data from the test
 
