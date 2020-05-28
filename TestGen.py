@@ -28,10 +28,11 @@ class TestGen():
 
     def do(self, name):
         self.file_input(name)
+        self.init_log_file()
         self.modify_ast()
         self.file_output()
-        #self.execute_test_suite(0, [1, 2, 3])
-        self.calc_fitness(4, 4, {"x" : 3, "y" : 15, "z" : 17})
+        self.execute_test_suite(0, [1, 2, 3])
+        #self.calc_fitness(4, 4, {"x" : 3, "y" : 15, "z" : 17})
         self.gen_test_suite()
         return
 
@@ -42,6 +43,12 @@ class TestGen():
     # Read the file, return ast
     def file_input(self, name):
         self.original_ast = astor.parse_file(name)
+        return
+
+    def init_log_file(self):
+        f = open(".execution_log", "w")
+        f.write("")
+        f.close()
         return
     
     def file_output(self):
@@ -175,6 +182,15 @@ class TestGen():
         exec(compile(test_code, "test", "exec"))
 
         # Gather data from the test
+        f = open(".execution_log", "r")
+        lines = f.readlines()
+        for line in lines:
+            split_line = line.split(" ")
+            predicate_num = int(split_line[0])
+            option = int(split_line[1])
+        branch_coverage = len(lines) / (len(self.predicates) - 1)
+        #print("branch coverage : " + str(branch_coverage))
+
 
 
 # This is a helper function added to the original code
@@ -183,6 +199,9 @@ class TestGen():
 # elif : 2 ~
 def check_branch(predicate_num, option):
     print("num : " + str(predicate_num) + ", option : " + str(option))
+    f = open(".execution_log", "a")
+    f.write(str(predicate_num) + " " + str(option) + "\n")
+    f.close()
     return
 
 if __name__ == "__main__":
