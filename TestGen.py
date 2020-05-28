@@ -2,6 +2,7 @@ import astor
 import ast
 import sys
 import copy
+import random
 
 class Func_info():
     def __init__(self, name, args, pointer):
@@ -129,6 +130,65 @@ class TestGen():
     def gen_test_suite(self):
         pass
 
+    def init_generate(self, func_num:int):
+        arg_number = len(self.functions[func_num].args)
+        arg_list = dict()
+        for i in range(arg_number):
+            arg_list[self.functions[funct_num].args[i]] = 0
+        return arg_list
+
+    def random_generate(self, func_num:int, start=0, end=10):
+        arg_number = len(self.functions[func_num].args)
+        arg_list = dict()
+        for i in range(arg_number):
+            ran_int = random.randrange(start, end)
+            arg_list.append[self.functions[funct_num].args[i]] = ran_int
+        return arg_list
+
+    def avm_generate(self, func_num:int, predicate_num:int, target_predicate_num:int, init_arg:dict):
+        arg_number = len(self.functions[func_num].args)
+        arg_flag = 0 # 0 ~ (arg_number - 1)
+        arg = copy.deepcopy(init_arg)
+        while True: 
+            # exploratory move
+            arg_letter = self.functions[func_num].args[arg_flag]
+            target_arg = arg[arg_letter]
+            # case 1 : +
+            arg[arg_letter] = target_arg + 1
+            fitness_1 = self.calc_fitness(predicate_num, target_predicate_num, arg)
+            # case 2 : -
+            arg[arg_letter] = target_arg - 1
+            fitness_2 = self.calc_fitness(predicate_num, target_predicate_num, arg)
+
+            # pattern move
+            arg[arg_letter] = target_arg
+            delta = 2
+            fitness = 0
+            if fitness_1 < fitness_2 : # +
+                fitness = fitness_1
+                old_fitness = fitness_1
+                while fitness <= old_fitness :
+                    arg[arg_letter] = arg[arg_letter] + delta
+                    old_fitness = fitness
+                    fitness = self.calc_fitness(predicate_num, target_predicate_num, arg)
+                    delta = delta * 2
+                arg[arg_letter] = arg[arg_letter] - delta / 2
+            elif fitness_1 > fitness_2 : # -
+                fitness = fitness_2
+                old_fitness = fitness_2
+                while fitness <= old_fitness :
+                    arg[arg_letter] = arg[arg_letter] - delta
+                    old_fitness = fitness
+                    fitness = self.calc_fitness(predicate_num, target_predicate_num, arg)
+                    delta = delta * 2
+                arg[arg_letter] = arg[arg_letter] + delta / 2
+            else:
+                print("fitness error")
+                exit(-1)
+            if fitness < 0:
+                return arg
+            arg_flag = (arg_flag + 1) % arg_number
+
     # Return calculated fitness value
     def calc_fitness(self, predicate_num:int, target_predicate_num:int, args:dict):
         predicate = self.predicates[predicate_num].predicate
@@ -190,8 +250,7 @@ class TestGen():
             option = int(split_line[1])
         branch_coverage = len(lines) / (len(self.predicates) - 1)
         #print("branch coverage : " + str(branch_coverage))
-
-
+        return
 
 # This is a helper function added to the original code
 # if : 1
