@@ -42,6 +42,11 @@ class TestGen():
         self.init_log_file()
         self.modify_ast()
         self.file_output()
+        self.gen_test_suite_()
+        print("end of the program")
+        return
+    
+    def gen_test_suite_(self):
         f = open("search_result.txt", "w")
         for i in range(self.current_func + 1):
             f.write("Test cases for function (" + str(i) + ")\n")
@@ -50,10 +55,8 @@ class TestGen():
             f.write("\n")
             print("")
         f.close()
-
-        print("end of the program")
         return
-    
+
     # Read the file
     def file_input(self, name):
         self.file_ast = astor.parse_file(name)
