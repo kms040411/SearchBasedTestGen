@@ -139,11 +139,11 @@ class TestGen():
                 iter_ast(node.orelse)
                 self.precedent_stack.pop()
             elif isinstance(node, ast.For):
-                predicate_num = self.register_predicate(node)
-                self.add_helperfunc(predicate_num, node)
+                #predicate_num = self.register_predicate(node)
+                #self.add_helperfunc(predicate_num, node)
                 iter_ast(node.body)
                 iter_ast(node.orelse)
-                self.precedent_stack.pop()
+                #self.precedent_stack.pop()
             elif isinstance(node, ast.Assign):
                 target = node.targets[0].id
                 self.constant_stack.append(target)
@@ -179,6 +179,7 @@ class TestGen():
         for i in range(1, len(function.predicates)):
             target_predicate = i
             init_arg = self.get_answer(func_num, target_predicate)
+            #print("init_arg : " + str(init_arg))
             arg = init_arg
             arg = self.avm_generate(func_num, target_predicate, 1, arg)
             if arg is None:
@@ -221,25 +222,35 @@ class TestGen():
 
     def check_fitness(self, op, fitness, target_predicate_num, target_predicate_option, current_predicate_num):
         if target_predicate_option != 0:
-            if isinstance(op, ast.Gt) or isinstance(op, ast.Lt) or isinstance(op, ast.NotEq):
+            if isinstance(op, ast.Gt) or isinstance(op, ast.Lt):
                 if fitness < 0 and current_predicate_num == target_predicate_num:
                     return True
             elif isinstance(op, ast.GtE) or isinstance(op, ast.LtE):
                 if fitness <= 0 and current_predicate_num == target_predicate_num:
                     return True
-            else:
+            elif isinstance(op, ast.Eq):
                 if fitness == 0 and current_predicate_num == target_predicate_num:
                     return True
+            elif isinstance(op, ast.NotEq):
+                if fitness != 0 and current_predicate_num == target_predicate_num:
+                    return True
+            else:
+                raise Exception()
         else:
-            if isinstance(op, ast.Gt) or isinstance(op, ast.Lt) or isinstance(op, ast.NotEq):
+            if isinstance(op, ast.Gt) or isinstance(op, ast.Lt):
                 if fitness > 0 and current_predicate_num == target_predicate_num:
                     return True
             elif isinstance(op, ast.GtE) or isinstance(op, ast.LtE):
                 if fitness >= 0 and current_predicate_num == target_predicate_num:
                     return True
-            else:
+            elif isinstance(op, ast.Eq):
                 if fitness != 0 and current_predicate_num == target_predicate_num:
                     return True
+            elif isinstance(op, ast.NotEq):
+                if fitness == 0 and current_predicate_num == target_predicate_num:
+                    return True
+            else:
+                raise Exception()
         return False
 
     # Run AVM to find args
@@ -273,6 +284,7 @@ class TestGen():
             fitness = 0
             old_fitness = 0
             current_predicate_num = 1
+            flag = 0
             if target_predicate_option != 0:
                 if fitness_1 < fitness_2 :
                     # +, use fitness_1
@@ -305,11 +317,13 @@ class TestGen():
                             break
                         delta = delta * 2
                 else:
+                    flag = 1
                     old_fitness = fitness_1
-                    fitness = fitness_1
                 op = self.functions[func_num].predicates[current_predicate_num].op
                 #print("fitness : " + str(fitness))
                 if self.check_fitness(op, old_fitness, target_predicate_num, target_predicate_option, current_predicate_num):
+                    if flag:
+                        arg[arg_letter] = target_arg - 1
                     return arg
             else:
                 if fitness_1 < fitness_2:
@@ -341,7 +355,7 @@ class TestGen():
                             break
                         delta = delta * 2
                 else:
-                    fitness = fitness_1
+                    old_fitness = fitness_1
                 op = self.functions[func_num].predicates[current_predicate_num].op
                 if self.check_fitness(op, old_fitness, target_predicate_num, target_predicate_option, current_predicate_num):
                     return arg
@@ -386,8 +400,8 @@ class TestGen():
             left_code = left_code.replace(key, str(args[key]))
             right_code = right_code.replace(key, str(args[key]))
 
-        left_eval = eval(left_code)
-        right_eval = eval(right_code)
+        left_eval = int(eval(left_code))
+        right_eval = int(eval(right_code))
         #print("args : " + str(args) + ", left_eval : " + str(left_eval) + ", right_eval: " + str(right_eval))
         # @TODO : calculate approach_level, it could be wrong when we use 'elif'
         approach_level = len(self.functions[func_num].predicates[target_predicate_num].precedent) - len(self.functions[func_num].predicates[predicate_num].precedent)
@@ -405,7 +419,7 @@ class TestGen():
         elif isinstance(op, ast.LtE):
             branch_distance = left_eval - right_eval + K
         elif isinstance(op, ast.NotEq):
-            branch_distance = -1 * abs(left_eval - right_eval)
+            branch_distance = abs(left_eval - right_eval)
         normalized = 0
         if branch_distance + 1 != 0:
             normalized = branch_distance / abs(branch_distance + 1)
