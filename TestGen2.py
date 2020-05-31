@@ -42,8 +42,15 @@ class TestGen():
         self.init_log_file()
         self.modify_ast()
         self.file_output()
+        f = open("search_result.txt", "w")
         for i in range(self.current_func + 1):
-            self.gen_test_suite(i)
+            f.write("Test cases for function (" + str(i) + ")\n")
+            print("Test cases for function (" + str(i) + ")")
+            self.gen_test_suite(i, f)
+            f.write("\n")
+            print("")
+        f.close()
+
         print("end of the program")
         return
     
@@ -168,20 +175,19 @@ class TestGen():
         else:
             answer = self.answers[(precedent[-1] - 1) * 2]
             if answer.arg is None:
-                return self.init_generate(func_num)
+                return None
             return answer.arg
 
     # Write test code
-    def gen_test_suite(self, func_num:int):
+    def gen_test_suite(self, func_num:int, f):
         function = self.functions[func_num]
         predicate = function.predicates
-        f = open("search_result.txt", "w")
         for i in range(1, len(function.predicates)):
             target_predicate = i
             init_arg = self.get_answer(func_num, target_predicate)
-            #print("init_arg : " + str(init_arg))
             arg = init_arg
-            arg = self.avm_generate(func_num, target_predicate, 1, arg)
+            if arg is not None:
+                arg = self.avm_generate(func_num, target_predicate, 1, arg)
             if arg is None:
                 f.write(str(i) + "T : -\n")
                 print(str(i) + "T : -")
@@ -191,7 +197,8 @@ class TestGen():
             self.register_answer(func_num, target_predicate, 1, arg)
 
             arg = init_arg
-            arg = self.avm_generate(func_num, target_predicate, 0, arg)
+            if arg is not None:
+                arg = self.avm_generate(func_num, target_predicate, 0, arg)
             if arg is None:
                 f.write(str(i) + "F : -\n")
                 print(str(i) + "F : -")
@@ -199,7 +206,6 @@ class TestGen():
                 f.write(str(i) + "F : " + str(arg) + "\n")
                 print(str(i) + "F : " + str(arg))
             self.register_answer(func_num, target_predicate, 0, arg)
-        f.close()
 
     def get_current_predicate(self, func_num:int, args:dict, target_predicate:int):
         predicates = self.execute_test_suite(func_num, args)
@@ -261,15 +267,18 @@ class TestGen():
         if self.check_fitness(op, fitness, target_predicate_num, target_predicate_option, current_predicate_num):
             return arg
         
+        probe = 1
         for i in range(self.config["DEPTH"] * arg_number):
             # exploratory move
             arg_letter = self.functions[func_num].args[arg_flag]
             target_arg = arg[arg_letter]
             # case 1 : +
-            arg[arg_letter] = target_arg + 1
+            if i > 10 * arg_number:
+                probe = (probe + int(probe / 10) + 1)
+            arg[arg_letter] = target_arg + probe
             fitness_1, temp = self.calc_fitness(func_num, target_predicate_num, arg)
             # case 2 : -
-            arg[arg_letter] = target_arg - 1
+            arg[arg_letter] = target_arg - probe
             fitness_2, temp = self.calc_fitness(func_num, target_predicate_num, arg)
 
             # pattern move
@@ -314,7 +323,6 @@ class TestGen():
                 op = self.functions[func_num].predicates[current_predicate_num].op
                 if isinstance(op, ast.NotEq):
                     op = ast.Eq()
-                #print("fitness : " + str(fitness))
                 if self.check_fitness(op, old_fitness, target_predicate_num, target_predicate_option, current_predicate_num):
                     return arg
             else:
@@ -348,6 +356,9 @@ class TestGen():
                         delta = delta * 2
                 else:
                     old_fitness = fitness_1
+                    if target_arg == 0:
+                        arg[arg_letter] = arg[arg_letter] + 1
+                        old_fitness, current_predicate_num = self.calc_fitness(func_num, target_predicate_num, arg)
                 op = self.functions[func_num].predicates[current_predicate_num].op
                 if isinstance(op, ast.NotEq):
                     op = ast.Eq()
@@ -375,7 +386,6 @@ class TestGen():
         predicate_num = self.get_current_predicate(func_num, args, target_predicate_num)
         predicate = self.functions[func_num].predicates[predicate_num].predicate
         args = get_args_from_file(predicate_num)
-        #print("args : " + str(args))
 
         op = predicate.ops[0]
         left = predicate.left
@@ -396,8 +406,6 @@ class TestGen():
 
         left_eval = int(eval(left_code))
         right_eval = int(eval(right_code))
-        #print("args : " + str(args) + ", left_eval : " + str(left_eval) + ", right_eval: " + str(right_eval))
-        # @TODO : calculate approach_level, it could be wrong when we use 'elif'
         approach_level = len(self.functions[func_num].predicates[target_predicate_num].precedent) - len(self.functions[func_num].predicates[predicate_num].precedent)
 
         branch_distance = 0
@@ -417,8 +425,6 @@ class TestGen():
         normalized = 0
         if branch_distance + 1 != 0:
             normalized = branch_distance / abs(branch_distance + 1)
-        #normalized = 1 - pow(1.001, -1 * branch_distance)
-        #print("approach_level : " + str(approach_level) + ", normalized : " + str(normalized))
         f = normalized + approach_level
         return f, predicate_num
 
@@ -446,11 +452,12 @@ class TestGen():
             predicate_num = int(split_line[0])
             predicates.append(predicate_num)
             option = int(split_line[1])
-        #branch_coverage = len(lines) / (len(self.predicates) - 1)
         return predicates
 
     # Print help information
-    def help_function(self):
+    def help_function(self, program_name):
+        print(str(program_name) + ": Search Based Test Data Generation")
+        print("Usage: " + str(program_name) + " [Target program] [Depth=100]")
         pass
 
 # This is a helper function added to the original code
@@ -469,9 +476,13 @@ def check_branch(predicate_num, option, char_list, *args):
     return
 
 if __name__ == "__main__":
-    testgen = TestGen()
     if len(sys.argv) == 1:
-        testgen.helper_function()
+        testgen = TestGen()
+        testgen.help_function(sys.argv[0])
         exit(0)
     else:
+        depth = 100
+        if len(sys.argv) == 3:
+            depth = int(sys.argv[2])
+        testgen = TestGen(DEPTH = depth)
         testgen.do(sys.argv[1])
