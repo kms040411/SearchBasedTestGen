@@ -10,16 +10,18 @@ class Func_info():
         self.predicates = [None] # Do not use index 0
 
 class Predicate_info():
-    def __init__(self, num, predicate, precedent):
+    def __init__(self, num, predicate, precedent, op):
         self.num = num
         self.predicate = predicate
+        self.op = op
         self.precedent = precedent
 
 class Answer_info():
-    def __init__(self, func_num, arg, target_predicate):
+    def __init__(self, func_num, arg, target_predicate, predicate_option):
         self.func_num = func_num
         self.arg = arg
         self.target_predicate = target_predicate
+        self.predicate_option = predicate_option
 
 class TestGen():
     config = dict()
@@ -28,8 +30,9 @@ class TestGen():
     precedent_stack = list()
     constant_stack = list()
     constant_num_stack = list()
+    answers = list()
 
-    def __init__(self, K = 0, DEPTH = 100):
+    def __init__(self, K = 1, DEPTH = 100):
         self.config["K"] = K
         self.config["DEPTH"] = DEPTH
         return
@@ -78,7 +81,8 @@ class TestGen():
             predicate = ast.Compare(left=node.target, ops=[ast.LtE], right=node.iter)
         predicate_num = len(self.functions[self.current_func].predicates)
         precedent = copy.deepcopy(self.precedent_stack)
-        self.functions[self.current_func].predicates.append(Predicate_info(predicate_num, predicate, precedent))
+        op = predicate.ops[0]
+        self.functions[self.current_func].predicates.append(Predicate_info(predicate_num, predicate, precedent, op))
         self.precedent_stack.append(predicate_num)
         return predicate_num
         
@@ -153,6 +157,20 @@ class TestGen():
         iter_ast(self.file_ast)
         return
 
+    def register_answer(self, func_num:int, target_predicate:int, predicate_option:int, arg:dict):
+        ans = Answer_info(func_num, arg, target_predicate, predicate_option)
+        self.answers.append(ans)
+
+    def get_answer(self, func_num:int, target_predicate:int):
+        precedent = self.functions[func_num].predicates[target_predicate].precedent
+        if len(precedent) == 0:
+            return self.init_generate(func_num)
+        else:
+            answer = self.answers[(precedent[-1] - 1) * 2]
+            if answer.arg is None:
+                return self.init_generate(func_num)
+            return answer.arg
+
     # Write test code
     def gen_test_suite(self, func_num:int):
         function = self.functions[func_num]
@@ -160,8 +178,8 @@ class TestGen():
         f = open("search_result.txt", "w")
         for i in range(1, len(function.predicates)):
             target_predicate = i
-            print("target predicate : " + str(target_predicate))
-            arg = self.init_generate(func_num)
+            init_arg = self.get_answer(func_num, target_predicate)
+            arg = init_arg
             arg = self.avm_generate(func_num, target_predicate, 1, arg)
             if arg is None:
                 f.write(str(i) + "T : -\n")
@@ -169,7 +187,9 @@ class TestGen():
             else:
                 f.write(str(i) + "T : " + str(arg) + "\n")
                 print(str(i) + "T : " + str(arg))
-            arg = self.init_generate(func_num)
+            self.register_answer(func_num, target_predicate, 1, arg)
+
+            arg = init_arg
             arg = self.avm_generate(func_num, target_predicate, 0, arg)
             if arg is None:
                 f.write(str(i) + "F : -\n")
@@ -177,15 +197,18 @@ class TestGen():
             else:
                 f.write(str(i) + "F : " + str(arg) + "\n")
                 print(str(i) + "F : " + str(arg))
+            self.register_answer(func_num, target_predicate, 0, arg)
         f.close()
 
     def get_current_predicate(self, func_num:int, args:dict, target_predicate:int):
         predicates = self.execute_test_suite(func_num, args)
         target_precedent = self.functions[func_num].predicates[target_predicate].precedent
+        target_precedent.append(target_predicate)
         current_predicate = 1
         for precedent in target_precedent:
             if precedent in predicates:
                 current_predicate = precedent
+        target_precedent.pop()
         return current_predicate
 
     # Generate 0 args
@@ -196,59 +219,132 @@ class TestGen():
             arg_list[self.functions[func_num].args[i]] = 0
         return arg_list
 
+    def check_fitness(self, op, fitness, target_predicate_num, target_predicate_option, current_predicate_num):
+        if target_predicate_option != 0:
+            if isinstance(op, ast.Gt) or isinstance(op, ast.Lt) or isinstance(op, ast.NotEq):
+                if fitness < 0 and current_predicate_num == target_predicate_num:
+                    return True
+            elif isinstance(op, ast.GtE) or isinstance(op, ast.LtE):
+                if fitness <= 0 and current_predicate_num == target_predicate_num:
+                    return True
+            else:
+                if fitness == 0 and current_predicate_num == target_predicate_num:
+                    return True
+        else:
+            if isinstance(op, ast.Gt) or isinstance(op, ast.Lt) or isinstance(op, ast.NotEq):
+                if fitness > 0 and current_predicate_num == target_predicate_num:
+                    return True
+            elif isinstance(op, ast.GtE) or isinstance(op, ast.LtE):
+                if fitness >= 0 and current_predicate_num == target_predicate_num:
+                    return True
+            else:
+                if fitness != 0 and current_predicate_num == target_predicate_num:
+                    return True
+        return False
+
     # Run AVM to find args
     def avm_generate(self, func_num:int, target_predicate_num:int, target_predicate_option:int, init_arg:dict):
         arg_number = len(self.functions[func_num].args)
         arg_flag = 0 # 0 ~ (arg_number - 1)
         arg = copy.deepcopy(init_arg)
+
+        fitness, current_predicate_num = self.calc_fitness(func_num, target_predicate_num, arg)
+        op = self.functions[func_num].predicates[current_predicate_num].op
+        if self.check_fitness(op, fitness, target_predicate_num, target_predicate_option, current_predicate_num):
+            return arg
+        
         for i in range(self.config["DEPTH"] * arg_number):
             # exploratory move
             arg_letter = self.functions[func_num].args[arg_flag]
             target_arg = arg[arg_letter]
             # case 1 : +
             arg[arg_letter] = target_arg + 1
-            fitness_1 = self.calc_fitness(func_num, target_predicate_num, arg)
+            fitness_1, temp = self.calc_fitness(func_num, target_predicate_num, arg)
             # case 2 : -
             arg[arg_letter] = target_arg - 1
-            fitness_2 = self.calc_fitness(func_num, target_predicate_num, arg)
+            fitness_2, temp = self.calc_fitness(func_num, target_predicate_num, arg)
+
+            #print("target_arg : " + str(target_arg))
+            #print(str(fitness_1) + ", " + str(fitness_2))
 
             # pattern move
             arg[arg_letter] = target_arg
-            delta = 2
+            delta = 1
             fitness = 0
             old_fitness = 0
-            if fitness_1 < fitness_2 : # +
-                fitness = fitness_1
-                old_fitness = fitness_1
-                for i in range(self.config["DEPTH"]):
-                    arg[arg_letter] = arg[arg_letter] + delta
-                    old_fitness = fitness
-                    fitness = self.calc_fitness(func_num, target_predicate_num, arg)
-                    delta = delta * 2
-                    if target_predicate_option == 1 and fitness >= old_fitness:
-                        break
-                    elif target_predicate_option == 0 and fitness <= old_fitness:
-                        break
-                arg[arg_letter] = arg[arg_letter] - delta / 4    
-            elif fitness_1 > fitness_2 : # -
-                fitness = fitness_1
-                old_fitness = fitness_1
-                for i in range(self.config["DEPTH"]):
-                    arg[arg_letter] = arg[arg_letter] - delta
-                    old_fitness = fitness
-                    fitness = self.calc_fitness(func_num, target_predicate_num, arg)
-                    delta = delta * 2
-                    if target_predicate_option == 1 and fitness >= old_fitness:
-                        break
-                    elif target_predicate_option == 0 and fitness <= old_fitness:
-                        break
-                arg[arg_letter] = arg[arg_letter] + delta / 4   
+            current_predicate_num = 1
+            if target_predicate_option != 0:
+                if fitness_1 < fitness_2 :
+                    # +, use fitness_1
+                    fitness = fitness_1
+                    old_fitness = fitness_1
+                    for i in range(self.config["DEPTH"]):
+                        arg[arg_letter] = arg[arg_letter] + delta
+                        old_fitness = fitness
+                        fitness, current_predicate_num = self.calc_fitness(func_num, target_predicate_num, arg)
+                        if fitness > old_fitness:
+                            arg[arg_letter] = arg[arg_letter] - delta
+                            break
+                        if self.check_fitness(op, old_fitness, target_predicate_num, target_predicate_option, current_predicate_num) \
+                            and self.check_fitness(op, fitness, target_predicate_num, target_predicate_option, current_predicate_num):
+                            break
+                        delta = delta * 2
+                elif fitness_1 > fitness_2:
+                    # -, use fitness_2
+                    fitness = fitness_2
+                    old_fitness = fitness_2
+                    for i in range(self.config["DEPTH"]):
+                        arg[arg_letter] = arg[arg_letter] - delta
+                        old_fitness = fitness
+                        fitness, current_predicate_num = self.calc_fitness(func_num, target_predicate_num, arg)
+                        if fitness > old_fitness:
+                            arg[arg_letter] = arg[arg_letter] + delta
+                            break
+                        if self.check_fitness(op, old_fitness, target_predicate_num, target_predicate_option, current_predicate_num) \
+                            and self.check_fitness(op, fitness, target_predicate_num, target_predicate_option, current_predicate_num):
+                            break
+                        delta = delta * 2
+                else:
+                    old_fitness = fitness_1
+                    fitness = fitness_1
+                op = self.functions[func_num].predicates[current_predicate_num].op
+                #print("fitness : " + str(fitness))
+                if self.check_fitness(op, old_fitness, target_predicate_num, target_predicate_option, current_predicate_num):
+                    return arg
             else:
-                old_fitness = fitness_1
-            if target_predicate_option == 1 and old_fitness <= 0:
-                return arg
-            elif target_predicate_option == 0 and old_fitness >= 0:
-                return arg
+                if fitness_1 < fitness_2:
+                    fitness = fitness_2
+                    old_fitness = fitness_2
+                    for i in range(self.config["DEPTH"]):
+                        arg[arg_letter] = arg[arg_letter] - delta
+                        old_fitness = fitness
+                        fitness, current_predicate_num = self.calc_fitness(func_num, target_predicate_num, arg)
+                        if fitness < old_fitness:
+                            arg[arg_letter] = arg[arg_letter] + delta
+                            break
+                        if self.check_fitness(op, old_fitness, target_predicate_num, target_predicate_option, current_predicate_num) \
+                            and self.check_fitness(op, fitness, target_predicate_num, target_predicate_option, current_predicate_num):
+                            break
+                        delta = delta * 2
+                elif fitness_1 > fitness_2:
+                    fitness = fitness_1
+                    old_fitness = fitness_1
+                    for i in range(self.config["DEPTH"]):
+                        arg[arg_letter] = arg[arg_letter] + delta
+                        old_fitness = fitness
+                        fitness, current_predicate_num = self.calc_fitness(func_num, target_predicate_num, arg)
+                        if fitness < old_fitness:
+                            arg[arg_letter] = arg[arg_letter] - delta
+                            break
+                        if self.check_fitness(op, old_fitness, target_predicate_num, target_predicate_option, current_predicate_num) \
+                            and self.check_fitness(op, fitness, target_predicate_num, target_predicate_option, current_predicate_num):
+                            break
+                        delta = delta * 2
+                else:
+                    fitness = fitness_1
+                op = self.functions[func_num].predicates[current_predicate_num].op
+                if self.check_fitness(op, old_fitness, target_predicate_num, target_predicate_option, current_predicate_num):
+                    return arg
             arg_flag = (arg_flag + 1) % arg_number
         # Cannot find answer
         return None
@@ -271,6 +367,7 @@ class TestGen():
         predicate_num = self.get_current_predicate(func_num, args, target_predicate_num)
         predicate = self.functions[func_num].predicates[predicate_num].predicate
         args = get_args_from_file(predicate_num)
+        #print("args : " + str(args))
 
         op = predicate.ops[0]
         left = predicate.left
@@ -291,6 +388,7 @@ class TestGen():
 
         left_eval = eval(left_code)
         right_eval = eval(right_code)
+        #print("args : " + str(args) + ", left_eval : " + str(left_eval) + ", right_eval: " + str(right_eval))
         # @TODO : calculate approach_level, it could be wrong when we use 'elif'
         approach_level = len(self.functions[func_num].predicates[target_predicate_num].precedent) - len(self.functions[func_num].predicates[predicate_num].precedent)
 
@@ -302,7 +400,6 @@ class TestGen():
             branch_distance = left_eval - right_eval + K
         elif isinstance(op, ast.Eq):
             branch_distance = abs(left_eval - right_eval)
-        # @TODO : Consider <=, >= cases
         elif isinstance(op, ast.GtE):
             branch_distance = right_eval - left_eval + K
         elif isinstance(op, ast.LtE):
@@ -311,9 +408,10 @@ class TestGen():
             branch_distance = -1 * abs(left_eval - right_eval)
         normalized = 0
         if branch_distance + 1 != 0:
-            normalized = branch_distance / (branch_distance + 1)
+            normalized = branch_distance / abs(branch_distance + 1)
+        #print("approach_level : " + str(approach_level) + ", normalized : " + str(normalized))
         f = normalized + approach_level
-        return f
+        return f, predicate_num
 
     # Generate & Execute test code
     def execute_test_suite(self, func_num:int, args:dict):
@@ -322,7 +420,7 @@ class TestGen():
         test_code = test_code + "import modified_code\n"
         test_code = test_code + "modified_code." + self.functions[func_num].name + "("
         for arg in self.functions[func_num].args:
-            test_code = test_code + str(args[arg]) + ", "
+            test_code = test_code + str(int(args[arg])) + ", "
         test_code = test_code + ")\n"
 
         self.init_log_file()
