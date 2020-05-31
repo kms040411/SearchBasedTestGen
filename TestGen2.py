@@ -231,9 +231,6 @@ class TestGen():
             elif isinstance(op, ast.Eq):
                 if fitness == 0 and current_predicate_num == target_predicate_num:
                     return True
-            elif isinstance(op, ast.NotEq):
-                if fitness != 0 and current_predicate_num == target_predicate_num:
-                    return True
             else:
                 raise Exception()
         else:
@@ -245,9 +242,6 @@ class TestGen():
                     return True
             elif isinstance(op, ast.Eq):
                 if fitness != 0 and current_predicate_num == target_predicate_num:
-                    return True
-            elif isinstance(op, ast.NotEq):
-                if fitness == 0 and current_predicate_num == target_predicate_num:
                     return True
             else:
                 raise Exception()
@@ -261,6 +255,9 @@ class TestGen():
 
         fitness, current_predicate_num = self.calc_fitness(func_num, target_predicate_num, arg)
         op = self.functions[func_num].predicates[current_predicate_num].op
+        if isinstance(op, ast.NotEq):
+            op = ast.Eq()
+            target_predicate_option = not target_predicate_option
         if self.check_fitness(op, fitness, target_predicate_num, target_predicate_option, current_predicate_num):
             return arg
         
@@ -275,16 +272,12 @@ class TestGen():
             arg[arg_letter] = target_arg - 1
             fitness_2, temp = self.calc_fitness(func_num, target_predicate_num, arg)
 
-            #print("target_arg : " + str(target_arg))
-            #print(str(fitness_1) + ", " + str(fitness_2))
-
             # pattern move
             arg[arg_letter] = target_arg
             delta = 1
             fitness = 0
             old_fitness = 0
             current_predicate_num = 1
-            flag = 0
             if target_predicate_option != 0:
                 if fitness_1 < fitness_2 :
                     # +, use fitness_1
@@ -317,13 +310,12 @@ class TestGen():
                             break
                         delta = delta * 2
                 else:
-                    flag = 1
                     old_fitness = fitness_1
                 op = self.functions[func_num].predicates[current_predicate_num].op
+                if isinstance(op, ast.NotEq):
+                    op = ast.Eq()
                 #print("fitness : " + str(fitness))
                 if self.check_fitness(op, old_fitness, target_predicate_num, target_predicate_option, current_predicate_num):
-                    if flag:
-                        arg[arg_letter] = target_arg - 1
                     return arg
             else:
                 if fitness_1 < fitness_2:
@@ -357,6 +349,8 @@ class TestGen():
                 else:
                     old_fitness = fitness_1
                 op = self.functions[func_num].predicates[current_predicate_num].op
+                if isinstance(op, ast.NotEq):
+                    op = ast.Eq()
                 if self.check_fitness(op, old_fitness, target_predicate_num, target_predicate_option, current_predicate_num):
                     return arg
             arg_flag = (arg_flag + 1) % arg_number
@@ -423,6 +417,7 @@ class TestGen():
         normalized = 0
         if branch_distance + 1 != 0:
             normalized = branch_distance / abs(branch_distance + 1)
+        #normalized = 1 - pow(1.001, -1 * branch_distance)
         #print("approach_level : " + str(approach_level) + ", normalized : " + str(normalized))
         f = normalized + approach_level
         return f, predicate_num
